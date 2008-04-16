@@ -60,6 +60,7 @@ namespace WwwProxy
 
         private Timer keepAliveTimer_ = null;
 
+        private bool closed_ = false;
         private bool ssl_ = false;
         private NetworkStream sslNetworkStream_ = null;
         private SslStream sslStream_ = null;
@@ -88,6 +89,12 @@ namespace WwwProxy
 
         internal void Close()
         {
+            if(closed_)
+            {
+                return;
+            }
+            closed_ = true;
+
             StopKeepAliveTimer();
 
             try
@@ -117,6 +124,7 @@ namespace WwwProxy
             }
             currentOutbounds_.Clear();
             currentOutboundsMutex_.ReleaseMutex();
+            currentOutboundsMutex_.Close();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,16 +132,23 @@ namespace WwwProxy
         internal void Complete(ProxyRequest request)
         {
             Outbound sendOutbound = null;
-            currentOutboundsMutex_.WaitOne();
-            foreach(Outbound o in currentOutbounds_.Keys)
+            try
             {
-                if(currentOutbounds_[o] == request)
+                currentOutboundsMutex_.WaitOne();
+                foreach(Outbound o in currentOutbounds_.Keys)
                 {
-                    sendOutbound = o;
-                    break;
+                    if(currentOutbounds_[o] == request)
+                    {
+                        sendOutbound = o;
+                        break;
+                    }
                 }
+                currentOutboundsMutex_.ReleaseMutex();
             }
-            currentOutboundsMutex_.ReleaseMutex();
+            catch(ObjectDisposedException)
+            {
+
+            }
 
             request.completedHeader_ = request.header_;
             if(request.data_ != null)
@@ -158,88 +173,123 @@ namespace WwwProxy
                             string host = hostMatch.Groups[1].Value;
 
                             string insert = (sendOutbound.ssl_ ? "https://" : "http://") + host + "/";
-                            request.completedHeader_ = Regex.Replace(request.completedHeader_, "([A-Z]+)\\s+/(.*)\\s+(HTTP/\\d.\\d)", "$1 " + insert + "$2 $3", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                            request.completedHeader_ = Regex.Replace(request.completedHeader_,
+                                                                     "([A-Z]+)\\s+/(.*)\\s+(HTTP/\\d.\\d)",
+                                                                     "$1 " + insert + "$2 $3", RegexOptions.IgnoreCase | RegexOptions.Multiline);
                         }
                     }
                 }
 
-                Match urlMatch = Regex.Match(request.completedHeader_, "([A-Z]+)\\s+(.*?)\\s+HTTP/\\d.\\d\r$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                if(urlMatch.Success)
+                if(wwwProxy_.ntlmEnabled_)
                 {
-                    Match basicCredentialsMatch = Regex.Match(request.completedHeader_, "^Authorization:\\s+Basic\\s+([a-zA-Z0-9=]*)[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                    if(basicCredentialsMatch.Success)
+                    MatchCollection basicCredentials = Regex.Matches(request.completedHeader_,
+                                                                         "^(Proxy-)*Authorization:\\s+Basic\\s+([a-zA-Z0-9=]*)[ \t]*[\r\n]*",
+                                                                         RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                    if(basicCredentials.Count > 0)
                     {
-                        string[] credentials = wwwProxy_.defaultEncoding_.GetString(Convert.FromBase64String(basicCredentialsMatch.Groups[1].Value)).Split(':');
-                        if(wwwProxy_.ntlmEnabled_ && (credentials != null) && (credentials.Length >= 2))
+                        Match urlMatch = Regex.Match(request.completedHeader_, "([A-Z]+)\\s+(.*?)\\s+HTTP/\\d.\\d\r$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                        if(urlMatch.Success)
                         {
                             string ntlmSite = sendOutbound.host_ + ":" + sendOutbound.port_;
                             string ntlmPath = urlMatch.Groups[2].Value;
 
-                            WwwProxyNtlm.WwwProxyNtlm wwwProxyNtlm = null;
+                            INtlm wwwProxyNtlm = null;
 
                             try
                             {
                                 wwwProxy_.ntlmListMutex_.WaitOne();
 
-                                foreach(WwwProxyNtlm.WwwProxyNtlm w in wwwProxy_.ntlmList_)
+                                foreach(INtlm w in wwwProxy_.ntlmList_)
                                 {
-                                    if(w.Site == ntlmSite)
+                                    if((w.Site == ntlmSite) && (w.Path == ntlmPath))
                                     {
-                                        if(w.Path == ntlmPath)
+                                        foreach(Match basicCredentialsMatch in basicCredentials)
                                         {
-                                            w.Basic = basicCredentialsMatch.Groups[1].Value;
-                                            wwwProxyNtlm = w;
+                                            if((w.Type == basicCredentialsMatch.Groups[1].Value) ||
+                                               ((w.Type == "WWW") && (basicCredentialsMatch.Groups[1].Value == "")))
+                                            {
+                                                w.Basic = basicCredentialsMatch.Groups[2].Value;
+                                                wwwProxyNtlm = w;
+                                                break;
+                                            }
+                                        }
+
+                                        if(wwwProxyNtlm != null)
+                                        {
                                             break;
                                         }
                                     }
                                 }
+
                                 if(wwwProxyNtlm == null)
                                 {
-                                    foreach(WwwProxyNtlm.WwwProxyNtlm w in wwwProxy_.ntlmList_)
+                                    foreach(INtlm w in wwwProxy_.ntlmList_)
                                     {
-                                        if((w.Site == ntlmSite) && (w.Basic != null) &&
-                                           (basicCredentialsMatch.Groups[1].Value == w.Basic))
+                                        if((w.Site == ntlmSite) && (w.Basic != null))
                                         {
-                                            WwwProxyNtlm.WwwProxyNtlm cloneWwwProxyNtlm = new WwwProxyNtlm.WwwProxyNtlm();
-                                            cloneWwwProxyNtlm.Site = ntlmSite;
-                                            cloneWwwProxyNtlm.Path = ntlmPath;
-                                            cloneWwwProxyNtlm.Basic = w.Basic;
-                                            wwwProxy_.ntlmList_.Add(cloneWwwProxyNtlm);
-                                            wwwProxyNtlm = cloneWwwProxyNtlm;
-                                            break;
+                                            foreach(Match basicCredentialsMatch in basicCredentials)
+                                            {
+                                                if((w.Basic == basicCredentialsMatch.Groups[2].Value) &&
+                                                   ((w.Type == basicCredentialsMatch.Groups[1].Value) ||
+                                                    ((w.Type == "WWW") && (basicCredentialsMatch.Groups[1].Value == ""))))
+                                                {
+                                                    INtlm cloneWwwProxyNtlm = wwwProxy_.ntlmFactory_.CreateInstance();
+                                                    if(cloneWwwProxyNtlm != null)
+                                                    {
+                                                        cloneWwwProxyNtlm.Site = ntlmSite;
+                                                        cloneWwwProxyNtlm.Path = ntlmPath;
+                                                        cloneWwwProxyNtlm.Type = w.Type;
+                                                        cloneWwwProxyNtlm.Basic = w.Basic;
+                                                        wwwProxy_.ntlmList_.Add(cloneWwwProxyNtlm);
+                                                        wwwProxyNtlm = cloneWwwProxyNtlm;
+                                                    }
+                                                    break;
+                                                }
+                                            }
+                                            if(wwwProxyNtlm != null)
+                                            {
+                                                break;
+                                            }
                                         }
                                     }
+                                }
+
+                                if(wwwProxyNtlm != null)
+                                {
+                                    string[] credentials = wwwProxy_.defaultEncoding_.GetString(Convert.FromBase64String(wwwProxyNtlm.Basic)).Split(':');
+
+                                    string ntlmNegotiate = null;
+                                    string domain = sendOutbound.host_;
+                                    string username = credentials[0];
+                                    string password = credentials[1];
+
+                                    if(username.Contains("\\"))
+                                    {
+                                        int domainUsernameSeparator = username.IndexOf('\\');
+                                        if((domainUsernameSeparator > 0) && (domainUsernameSeparator < (username.Length - 1)))
+                                        {
+                                            domain = username.Substring(0, domainUsernameSeparator);
+                                            username = username.Substring(username.IndexOf('\\') + 1);
+                                        }
+                                    }
+
+                                    wwwProxyNtlm.Initialise(domain, username, password);
+                                    ntlmNegotiate = wwwProxyNtlm.Continue(null);
+                                    if(ntlmNegotiate == null)
+                                    {
+                                        ntlmNegotiate = "???";
+                                    }
+                                    string authReplace = "^(" + (wwwProxyNtlm.Type == "Proxy" ? "Proxy-" : "") +
+                                                         "Authorization:\\s+)Basic\\s+[a-zA-Z0-9=]+[ \t]*([\r\n]*)";
+                                    request.completedHeader_ = Regex.Replace(request.completedHeader_,
+                                                                             authReplace,
+                                                                             "${1}NTLM " + ntlmNegotiate + "${2}",
+                                                                             RegexOptions.IgnoreCase | RegexOptions.Multiline);
                                 }
                             }
                             finally
                             {
                                 wwwProxy_.ntlmListMutex_.ReleaseMutex();
-                            }
-
-                            if(wwwProxyNtlm != null)
-                            {
-                                string ntlmNegotiate = null;
-                                string domain = sendOutbound.host_;
-                                string username = credentials[0];
-                                string password = credentials[1];
-
-                                if(username.Contains("\\"))
-                                {
-                                    int domainUsernameSeparator = username.IndexOf('\\');
-                                    if((domainUsernameSeparator > 0) && (domainUsernameSeparator < (username.Length - 1)))
-                                    {
-                                        domain = username.Substring(0, domainUsernameSeparator);
-                                        username = username.Substring(username.IndexOf('\\') + 1);
-                                    }
-                                }
-
-                                wwwProxyNtlm.Initialise(domain, username, password);
-                                ntlmNegotiate = wwwProxyNtlm.Continue(null);
-                                if(ntlmNegotiate == null)
-                                {
-                                    ntlmNegotiate = "???";
-                                }
-                                request.completedHeader_ = Regex.Replace(request.completedHeader_, "^(Authorization:\\s+)Basic\\s+[a-zA-Z0-9=]+([\r\n]*)", "${1}NTLM " + ntlmNegotiate + "${2}", RegexOptions.IgnoreCase | RegexOptions.Multiline);
                             }
                         }
                     }
@@ -291,18 +341,22 @@ namespace WwwProxy
             {
                 asyncBytesRead = 0;
                 inboundSocketReceiveEvent_.Reset();
-                IAsyncResult asyncResult = inboundSocket_.BeginReceive(receiveBuffer, offset, size, SocketFlags.None, new AsyncCallback(OnSocketReceive), 0);
-                
-                WaitHandle[] waitHandles = new WaitHandle[2];
-                waitHandles[0] = inboundThreadExitEvent_;
-                waitHandles[1] = inboundSocketReceiveEvent_;
-                if(WaitHandle.WaitAny(waitHandles, Timeout.Infinite, false) == 0)
+
+                if(inboundSocket_.Connected)
                 {
-                    bytesRead = 0;
-                }
-                else
-                {
-                    bytesRead = asyncBytesRead;
+                    IAsyncResult asyncResult = inboundSocket_.BeginReceive(receiveBuffer, offset, size, SocketFlags.None, new AsyncCallback(OnSocketReceive), 0);
+
+                    WaitHandle[] waitHandles = new WaitHandle[2];
+                    waitHandles[0] = inboundThreadExitEvent_;
+                    waitHandles[1] = inboundSocketReceiveEvent_;
+                    if(WaitHandle.WaitAny(waitHandles, Timeout.Infinite, false) == 0)
+                    {
+                        bytesRead = 0;
+                    }
+                    else
+                    {
+                        bytesRead = asyncBytesRead;
+                    }
                 }
             }
             return bytesRead;
@@ -353,9 +407,16 @@ namespace WwwProxy
 
         internal void OnDisconnect(Outbound outbound)
         {
-            currentOutboundsMutex_.WaitOne();
-            currentOutbounds_.Remove(outbound);
-            currentOutboundsMutex_.ReleaseMutex();
+            try
+            {
+                currentOutboundsMutex_.WaitOne();
+                currentOutbounds_.Remove(outbound);
+                currentOutboundsMutex_.ReleaseMutex();
+            }
+            catch(ObjectDisposedException)
+            {
+
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -407,7 +468,7 @@ namespace WwwProxy
                             requestEncoding = wwwProxy_.defaultEncoding_;
                         }
 
-                        Match contentLengthMatch = Regex.Match(requestRaw, "^Content-Length:\\s+(\\d+)[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                        Match contentLengthMatch = Regex.Match(requestRaw, "^Content-Length:\\s+(\\d+)[ \t]*[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
                         if(contentLengthMatch.Success)
                         {
                             int contentsLength = Convert.ToInt32(contentLengthMatch.Groups[1].Value);
@@ -438,10 +499,10 @@ namespace WwwProxy
                         if(requestRaw != null)
                         {
                             requestRaw = Regex.Replace(requestRaw, "([A-Z]+)\\s+([a-zA-Z]+://.*?/)(.*?)\\s+(HTTP/\\d.\\d)", "$1 /$3 $4", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                            requestRaw = Regex.Replace(requestRaw, "^Accept-Encoding:\\s+(.*)?[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                            requestRaw = Regex.Replace(requestRaw, "^Content-Length:\\s+(.*)?[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                            requestRaw = Regex.Replace(requestRaw, "^Proxy-Connection:\\s+(.*)?[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                            requestRaw = requestRaw.TrimEnd("\r\n".ToCharArray());
+                            requestRaw = Regex.Replace(requestRaw, "^Accept-Encoding:\\s+(.*)?[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                            requestRaw = Regex.Replace(requestRaw, "^Content-Length:\\s+(.*)?[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                            requestRaw = Regex.Replace(requestRaw, "^Proxy-Connection:\\s+(.*)?[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                            requestRaw = requestRaw.TrimEnd(" \t\r\n".ToCharArray());
 
                             Match hostMatch = Regex.Match(requestRaw, "^Host:\\s+(\\S*)?", RegexOptions.IgnoreCase | RegexOptions.Multiline);
                             if(hostMatch.Success)
@@ -646,12 +707,17 @@ namespace WwwProxy
                 {
                     if(inboundSocket_ != null)
                     {
-                        if((receiveBuffer.Length - receiveBufferCount) < 1024)
+                        if((receiveBuffer.Length - receiveBufferCount) < 4096)
                         {
-                            byte[] newreceiveBuffer = new byte[receiveBuffer.Length * 2];
-                            Array.Copy(receiveBuffer, 0, newreceiveBuffer, 0, receiveBuffer.Length);
-                            receiveBuffer = newreceiveBuffer;
-                        } 
+                            int newReceiveBufferLength = receiveBuffer.Length;
+                            while((newReceiveBufferLength - receiveBufferCount) < 4096)
+                            {
+                                newReceiveBufferLength *= 2;
+                            }
+                            byte[] newReceiveBuffer = new byte[newReceiveBufferLength];
+                            Array.Copy(receiveBuffer, 0, newReceiveBuffer, 0, receiveBuffer.Length);
+                            receiveBuffer = newReceiveBuffer;
+                        }
                         
                         if(inboundSocket_.Connected)
                         {

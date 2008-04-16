@@ -68,6 +68,7 @@ namespace WwwProxyClient
 
             string certificate = null;
             bool debug = false;
+            bool listenAny = false;
             ushort localPort = 8080;
             bool ntlmEnabled = false;
             bool pluginsEnabled = false; 
@@ -83,6 +84,10 @@ namespace WwwProxyClient
                 else if(args[i] == "-debug")
                 {
                     debug = true;
+                }
+                else if(args[i] == "-listen-any")
+                {
+                    listenAny = true;
                 }
                 else if(args[i] == "-localport")
                 {
@@ -132,7 +137,7 @@ namespace WwwProxyClient
             wwwProxy_.RemoteProxy = (remoteProxy != null) ? new IPEndPoint(IPAddress.Parse(remoteProxy[0]), Convert.ToUInt16(remoteProxy[1])) : null;
             wwwProxy_.RemoteProxyExceptions = remoteProxyExceptions;
 
-            wwwProxy_.Start(localPort);
+            wwwProxy_.Start(localPort, listenAny ? IPAddress.Any : null);
 
             Console.WriteLine("Running. Press Ctrl+C to Quit.");
             Console.WriteLine();

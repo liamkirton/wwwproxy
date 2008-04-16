@@ -49,23 +49,23 @@ namespace WwwProxyNtlm
 
 	// ====================================================================================================================
 	
-	public ref class WwwProxyNtlm : public System::IDisposable
+	public ref class WwwProxyNtlm : public WwwProxy::INtlm
 	{
 	public:
 		WwwProxyNtlm();
 		~WwwProxyNtlm();
 		
-		System::String ^Continue(System::String ^token);
-		void Initialise(System::String ^domain, System::String ^user, System::String ^password);
-		void Reset();
+		virtual System::String ^Continue(System::String ^token);
+		virtual void Initialise(System::String ^domain, System::String ^user, System::String ^password);
+		virtual void Reset();
 
 		property System::String ^Site
 		{
-			System::String ^get()
+			virtual System::String ^get()
 			{
 				return site_;
 			}
-			void set(System::String ^s)
+			virtual void set(System::String ^s)
 			{
 				site_ = s;
 			}
@@ -73,23 +73,35 @@ namespace WwwProxyNtlm
 
 		property System::String ^Path
 		{
-			System::String ^get()
+			virtual System::String ^get()
 			{
 				return path_;
 			}
-			void set(System::String ^s)
+			virtual void set(System::String ^s)
 			{
 				path_ = s;
 			}
 		}
 
+		property System::String ^Type
+		{
+			virtual System::String ^get()
+			{
+				return type_;
+			}
+			virtual void set(System::String ^s)
+			{
+				type_ = s;
+			}
+		}
+
 		property System::String ^Basic
 		{
-			System::String ^get()
+			virtual System::String ^get()
 			{
 				return basic_;
 			}
-			void set(System::String ^s)
+			virtual void set(System::String ^s)
 			{
 				basic_ = s;
 			}
@@ -100,7 +112,7 @@ namespace WwwProxyNtlm
 
 		System::String ^site_;
 		System::String ^path_;
-
+		System::String ^type_;
 		System::String ^basic_;
 	};
 

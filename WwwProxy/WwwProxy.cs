@@ -90,8 +90,9 @@ namespace WwwProxy
         internal IPEndPoint remoteProxy_ = null;
         internal string[] remoteProxyExceptions_ = null;
 
+        internal Ntlm ntlmFactory_ = null;
         internal Mutex ntlmListMutex_ = null;
-        internal List<WwwProxyNtlm.WwwProxyNtlm> ntlmList_ = null;
+        internal List<INtlm> ntlmList_ = null;
         
         private Thread threadListener_ = null;
         private Thread threadNotifier_ = null;
@@ -102,6 +103,7 @@ namespace WwwProxy
 
         private TcpListener tcpListener_ = null;
         private ushort tcpListenerPort_ = 0;
+        private IPAddress tcpListenerLocalAddr_ = IPAddress.Loopback;
 
         private Mutex currentInboundListMutex_ = null;
         private List<Inbound> currentInboundList_ = null;
@@ -185,6 +187,15 @@ namespace WwwProxy
             set
             {
                 ntlmEnabled_ = value;
+
+                if(ntlmEnabled_ == true)
+                {
+                    if(ntlmFactory_ == null)
+                    {
+                        ntlmFactory_ = new Ntlm();
+                        ntlmFactory_.Load();
+                    }
+                }
             }
         }
 
@@ -272,7 +283,7 @@ namespace WwwProxy
             notifyQueue_ = new Queue<object>();
 
             ntlmListMutex_ = new Mutex();
-            ntlmList_ = new List<WwwProxyNtlm.WwwProxyNtlm>();
+            ntlmList_ = new List<INtlm>();
 
             tcpListenerAcceptEvent_ = new ManualResetEvent(false);
             threadExitEvent_ = new ManualResetEvent(false);
@@ -289,9 +300,27 @@ namespace WwwProxy
 
         public void Start(ushort localPort)
         {
+            Start(localPort, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public void Start(ushort localPort, IPAddress localAddr)
+        {
+            if(localAddr != null)
+            {
+                tcpListenerLocalAddr_ = localAddr;
+            }
+
             if((threadListener_ != null) || (threadNotifier_ != null))
             {
                 Stop();
+            }
+
+            if(PluginsEnabled)
+            {
+                PluginsEnabled = false;
+                PluginsEnabled = true;
             }
 
             log_.Write("WwwProxy.Start", "Port=" + Convert.ToString(localPort));
@@ -333,7 +362,7 @@ namespace WwwProxy
             currentInboundListMutex_.ReleaseMutex();
 
             ntlmListMutex_.WaitOne();
-            foreach(WwwProxyNtlm.WwwProxyNtlm w in ntlmList_)
+            foreach(INtlm w in ntlmList_)
             {
                 w.Dispose();
             }
@@ -371,6 +400,8 @@ namespace WwwProxy
             {
                 request.inbound_.Close();
             }
+            request.encoding_ = null;
+            request.inbound_ = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -389,12 +420,16 @@ namespace WwwProxy
         {
             if(response.outbound_ != null)
             {
-                response.outbound_.Close();
                 if(response.outbound_.inbound_ != null)
                 {
                     response.outbound_.inbound_.Close();
                 }
+                response.outbound_.Close();
             }
+            response.request_.encoding_ = null;
+            response.request_.inbound_ = null;
+            response.encoding_ = null;
+            response.outbound_ = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -405,6 +440,10 @@ namespace WwwProxy
             {
                 response.outbound_.Complete(response);
             }
+            response.request_.encoding_ = null;
+            response.request_.inbound_ = null;
+            response.encoding_ = null;
+            response.outbound_ = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -517,7 +556,7 @@ namespace WwwProxy
         {
             try
             {
-                tcpListener_ = new TcpListener(IPAddress.Loopback, tcpListenerPort_);
+                tcpListener_ = new TcpListener(tcpListenerLocalAddr_, tcpListenerPort_);
                 tcpListener_.Start();
 
                 WaitHandle[] waitHandles = new WaitHandle[2];

@@ -37,6 +37,7 @@ namespace WwwProxyNtlm
 
 	WwwProxyNtlm::WwwProxyNtlm() : site_(nullptr),
 								   path_(nullptr),
+								   type_(nullptr),
 								   basic_(nullptr)
 	{
 		pNtlmSspi_ = new NtlmSspi;
@@ -128,6 +129,7 @@ namespace WwwProxyNtlm
 		
 		if(FAILED(scRet))
 		{
+			System::Console::WriteLine("scRet: {0}", scRet);
 			throw gcnew System::Exception("InitializeSecurityContext() Failed.");
 		}
 

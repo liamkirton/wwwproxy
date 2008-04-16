@@ -66,8 +66,18 @@ namespace WwwProxyScripting
 
         public void Initialise()
         {
+            
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public void Enable()
+        {
             try
             {
+                scriptEngineName_ = "";
+                scriptFileName_ = "";
+
                 StreamReader iniReader = new StreamReader("Config\\WwwProxyScripting.ini");
                 while(!iniReader.EndOfStream)
                 {
@@ -103,27 +113,12 @@ namespace WwwProxyScripting
                     }
                 }
                 iniReader.Close();
-            }
-            catch(Exception e)
-            {
-                scriptEngineName_ = "";
-                scriptFileName_ = "";
 
-                debugLog_.Write("WwwProxyScripting.Initialise()", e.ToString());
-            }
-        }
+                if((scriptEngineName_ == "") || (scriptFileName_ == ""))
+                {
+                    return;
+                }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        public void Enable()
-        {
-            if((scriptEngineName_ == "") || (scriptFileName_ == ""))
-            {
-                return;
-            }
-
-            try
-            {
                 scriptEngine_ = ScriptRuntime.Create().GetEngine(scriptEngineName_);
                 scriptScope_ = scriptEngine_.CreateScope();
 
@@ -138,6 +133,9 @@ namespace WwwProxyScripting
             }
             catch(Exception e)
             {
+                scriptEngineName_ = "";
+                scriptFileName_ = "";
+
                 debugLog_.Write("WwwProxyScripting.Enable()", e.ToString());
             }
         }

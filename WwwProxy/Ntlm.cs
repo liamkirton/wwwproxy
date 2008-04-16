@@ -3,9 +3,9 @@
 //
 // Copyright ©2008 Liam Kirton <liam@int3.ws>
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Plugins.cs
+// Ntlm.cs
 //
-// Created: 09/04/2008
+// Created: 15/04/2008
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // This file is part of WwwProxy.
@@ -34,57 +34,33 @@ using System.Text.RegularExpressions;
 
 namespace WwwProxy
 {
-    class Plugins : MarshalByRefObject
+    class Ntlm : MarshalByRefObject
     {
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         private Exception crossDomainException_ = null;
         private AppDomain defaultAppDomain_ = null;
-        private bool loaded_ = false;
 
-        private List<Assembly> loadedAssemblies_ = null;
-        private List<IPlugin> loadedPlugins_ = null;
+        private Assembly loadedAssembly_ = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public Plugins()
+        public Ntlm()
         {
             defaultAppDomain_ = AppDomain.CurrentDomain;
-            loadedAssemblies_ = new List<Assembly>();
-            loadedPlugins_ = new List<IPlugin>();
+            loadedAssembly_ = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public void Enable()
+        public bool Load()
         {
-            foreach(IPlugin i in loadedPlugins_)
+            if(loadedAssembly_ != null)
             {
-                i.Enable();
+                return true;
             }
-        }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        public void Disable()
-        {
-            foreach(IPlugin i in loadedPlugins_)
-            {
-                i.Disable();
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        public void Load()
-        {
-            if(loaded_)
-            {
-                return;
-            }
-            loaded_ = true;
-
-            AppDomain queryPluginAppDomain = AppDomain.CreateDomain("WwwProxy_queryPluginAppDomain");
+            AppDomain queryPluginAppDomain = AppDomain.CreateDomain("WwwProxy_queryNtlm");
             queryPluginAppDomain.DoCallBack(new CrossAppDomainDelegate(CrossAppDomainLoad));
             AppDomain.Unload(queryPluginAppDomain);
 
@@ -93,26 +69,32 @@ namespace WwwProxy
                 WwwProxy.Instance.OnError(null, null, crossDomainException_, crossDomainException_.Message);
             }
 
-            foreach(Assembly a in loadedAssemblies_)
-            {
-                IPlugin plugin = null;
+            return (loadedAssembly_ != null);
+        }
 
-                foreach(Type t in a.GetTypes())
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public INtlm CreateInstance()
+        {
+            INtlm ntlm = null;
+
+            if(loadedAssembly_ != null)
+            {
+                foreach(Type t in loadedAssembly_.GetTypes())
                 {
                     if(t.IsClass)
                     {
                         foreach(Type i in t.GetInterfaces())
                         {
-                            if(i.FullName == "WwwProxy.IPlugin")
+                            if(i.FullName == "WwwProxy.INtlm")
                             {
                                 try
                                 {
-                                    plugin = (IPlugin)System.Activator.CreateInstance(t);
-                                    plugin.Initialise();
+                                    ntlm = (INtlm)System.Activator.CreateInstance(t);
                                 }
                                 catch(Exception e)
                                 {
-                                    plugin = null;
+                                    ntlm = null;
                                     WwwProxy.Instance.OnError(null, null, e, e.Message);
                                 }
                                 break;
@@ -120,13 +102,14 @@ namespace WwwProxy
                         }
                     }
 
-                    if(plugin != null)
+                    if(ntlm != null)
                     {
-                        loadedPlugins_.Add(plugin);
                         break;
                     }
                 }
             }
+
+            return ntlm;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,10 +146,9 @@ namespace WwwProxy
                     {
                         foreach(Type i in t.GetInterfaces())
                         {
-                            if(i.FullName == "WwwProxy.IPlugin")
+                            if(i.FullName == "WwwProxy.INtlm")
                             {
-                                Assembly loadedPluginAssembly = defaultAppDomain_.Load(pluginAssembly.GetName());
-                                loadedAssemblies_.Add(loadedPluginAssembly);
+                                loadedAssembly_ = defaultAppDomain_.Load(pluginAssembly.GetName());
                                 return;
                             }
                         }

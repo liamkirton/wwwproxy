@@ -67,6 +67,8 @@ namespace WwwProxy
         private IPEndPoint outboundIpEndPoint_ = null;
         private Socket outboundSocket_ = null;
 
+        private bool processResponse_ = true;
+        private int bytesRequired_ = 0;
         private int asyncBytesRead_ = 0;
 
         private NetworkStream sslNetworkStream_ = null;
@@ -218,16 +220,18 @@ namespace WwwProxy
                 }
             }
 
-            request_ = null;
-
-            response_.outbound_ = null;
-            response_ = null;
+            if(responseCloseInbound_)
+            {
+                inbound_.Close();
+            }
 
             if(completableResponse_)
             {
                 completableResponse_ = false;
                 responseCloseInbound_ = false;
             }
+
+            response_ = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -411,14 +415,14 @@ namespace WwwProxy
                             responseEncoding = wwwProxy_.defaultEncoding_;
                         }
 
+                        if(connectionCloseMatch.Success)
+                        {
+                            responseCloseInbound_ = true;
+                        }
+
                         completableResponse_ = contentTextTypeMatch.Success || (httpResponseCode >= 300);
                         if(!completableResponse_)
                         {
-                            if(connectionCloseMatch.Success)
-                            {
-                                responseCloseInbound_ = true;
-                            }
-
                             inbound_.StopKeepAliveTimer();
                             inbound_.Send(receiveBuffer, 0, bytesReceived);
                             processedResponseBytes = bytesReceived;
@@ -430,11 +434,15 @@ namespace WwwProxy
                                 int contentsLength = Convert.ToInt32(contentLengthMatch.Groups[1].Value);
                                 if(contentsBytes.Length >= contentsLength)
                                 {
-                                    header = Regex.Replace(header, "^Content-Length:\\s+(\\d+)[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                    header = header.TrimEnd("\r\n".ToCharArray());
+                                    header = Regex.Replace(header, "^Content-Length:\\s+(\\d+)[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                    header = header.TrimEnd(" \t\r\n".ToCharArray());
 
                                     contents = responseEncoding.GetString(contentsBytes, 0, contentsBytes.Length);
                                     processedResponseBytes = contentsIndex + contentsLength;
+                                }
+                                else
+                                {
+                                    bytesRequired_ = contentsLength - contentsBytes.Length;
                                 }
                             }
                             else if(transferEncodingMatch.Success)
@@ -471,6 +479,7 @@ namespace WwwProxy
                                             }
                                             else
                                             {
+                                                bytesRequired_ = (deChunkingIndex + chunkLength) - chunkedContents.Length;
                                                 deChunkedContents = null;
                                             }
                                         }
@@ -497,8 +506,8 @@ namespace WwwProxy
 
                                 if(deChunkedContents != null)
                                 {
-                                    header = Regex.Replace(header, "^Transfer-Encoding:\\s+chunked(.*?)[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                    header = header.TrimEnd("\r\n".ToCharArray());
+                                    header = Regex.Replace(header, "^Transfer-Encoding:\\s+chunked(.*?)[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                    header = header.TrimEnd(" \t\r\n".ToCharArray());
                                     contents = deChunkedContents;
 
                                     processedResponseBytes = contentsIndex + deChunkingIndex;
@@ -519,11 +528,11 @@ namespace WwwProxy
                         {
                             if(completableResponse_)
                             {
-                                header = Regex.Replace(header, "^Proxy-Connection:\\s+(.*)?[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                header = header.TrimEnd("\r\n".ToCharArray());
+                                header = Regex.Replace(header, "^Proxy-Connection:\\s+(.*)?[ \t]*[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                header = header.TrimEnd(" \t\r\n".ToCharArray());
                             }
 
-                            if(httpResponseCode == 401)
+                            if((httpResponseCode == 401) || (httpResponseCode == 407))
                             {
                                 if(wwwProxy_.ntlmEnabled_)
                                 {
@@ -537,11 +546,11 @@ namespace WwwProxy
                                             string ntlmSite = host_ + ":" + port_;
                                             string ntlmPath = urlMatch.Groups[2].Value;
 
-                                            Match wwwAuthenticateBasicMatch = Regex.Match(header, "^Www-Authenticate:\\s+Basic(.*)?[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                            Match wwwAuthenticateBasicMatch = Regex.Match(header, "^(WWW|Proxy)-Authenticate:\\s+Basic(.*)?[ \t]*[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
                                             if(wwwAuthenticateBasicMatch.Success)
                                             {
-                                                List<WwwProxyNtlm.WwwProxyNtlm> toRemove = new List<WwwProxyNtlm.WwwProxyNtlm>();
-                                                foreach(WwwProxyNtlm.WwwProxyNtlm w in wwwProxy_.ntlmList_)
+                                                List<INtlm> toRemove = new List<INtlm>();
+                                                foreach(INtlm w in wwwProxy_.ntlmList_)
                                                 {
                                                     if(w.Site == ntlmSite)
                                                     {
@@ -549,14 +558,14 @@ namespace WwwProxy
                                                     }
                                                 }
 
-                                                foreach(WwwProxyNtlm.WwwProxyNtlm w in toRemove)
+                                                foreach(INtlm w in toRemove)
                                                 {
                                                     wwwProxy_.ntlmList_.Remove(w);
                                                 }
                                             }
 
-                                            WwwProxyNtlm.WwwProxyNtlm wwwProxyNtlm = null;
-                                            foreach(WwwProxyNtlm.WwwProxyNtlm w in wwwProxy_.ntlmList_)
+                                            INtlm wwwProxyNtlm = null;
+                                            foreach(INtlm w in wwwProxy_.ntlmList_)
                                             {
                                                 if((w.Site == ntlmSite) && (w.Path == ntlmPath))
                                                 {
@@ -565,22 +574,34 @@ namespace WwwProxy
                                                 }
                                             }
 
-                                            Match wwwAuthenticateNegotiateMatch = Regex.Match(header, "^Www-Authenticate:\\s+Negotiate[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                            Match wwwAuthenticateNTLMMatch = Regex.Match(header, "^Www-Authenticate:\\s+NTLM[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                            Match wwwAuthenticateNTLMResponseMatch = Regex.Match(header, "^Www-Authenticate:\\s+NTLM\\s+([A-Za-z0-9+/=]*)[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                            Match wwwAuthenticateNegotiateMatch = Regex.Match(header, "^(WWW|Proxy)-Authenticate:\\s+Negotiate[ \t]*[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                            Match wwwAuthenticateNTLMMatch = Regex.Match(header, "^(WWW|Proxy)-Authenticate:\\s+NTLM[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                            Match wwwAuthenticateNTLMResponseMatch = Regex.Match(header, "^(WWW|Proxy)-Authenticate:\\s+NTLM\\s+([A-Za-z0-9+/=]*)[ \t]*[\r\n]*", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
                                             if(wwwAuthenticateNegotiateMatch.Success && wwwAuthenticateNTLMMatch.Success)
                                             {
-                                                header = Regex.Replace(header, "^Www-Authenticate:\\s+Negotiate[\r\n]*", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                                header = Regex.Replace(header, "(^Www-Authenticate:\\s+)NTLM([\r\n]*)", "${1}Basic Realm=\"WwwProxy NTLM\"${2}", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                                header = header.TrimEnd("\r\n".ToCharArray());
+                                                string authType = wwwAuthenticateNegotiateMatch.Groups[1].Value;
+
+                                                header = Regex.Replace(header,
+                                                                       "^(WWW|Proxy)-Authenticate:\\s+Negotiate[ \t]*[\r\n]*",
+                                                                       "",
+                                                                       RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                                header = Regex.Replace(header,
+                                                                       "(^(WWW|Proxy)-Authenticate:\\s+)NTLM[ \t]*([\r\n]*)",
+                                                                       "${1}Basic Realm=\"WwwProxy NTLM (" + authType + ")\"${3}",
+                                                                       RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                                header = header.TrimEnd(" \t\r\n".ToCharArray());
 
                                                 if(wwwProxyNtlm == null)
                                                 {
-                                                    wwwProxyNtlm = new WwwProxyNtlm.WwwProxyNtlm();
-                                                    wwwProxyNtlm.Site = ntlmSite;
-                                                    wwwProxyNtlm.Path = ntlmPath;
-                                                    wwwProxy_.ntlmList_.Add(wwwProxyNtlm);
+                                                    wwwProxyNtlm = wwwProxy_.ntlmFactory_.CreateInstance();
+                                                    if(wwwProxyNtlm != null)
+                                                    {
+                                                        wwwProxyNtlm.Site = ntlmSite;
+                                                        wwwProxyNtlm.Path = ntlmPath;
+                                                        wwwProxyNtlm.Type = authType;
+                                                        wwwProxy_.ntlmList_.Add(wwwProxyNtlm);
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -589,7 +610,11 @@ namespace WwwProxy
                                             }
                                             else if(wwwAuthenticateNTLMResponseMatch.Success)
                                             {
-                                                request_.completedHeader_ = Regex.Replace(request_.completedHeader_, "^(Authorization:\\s+NTLM\\s+)[a-zA-Z0-9=]+([\r\n]*)", "${1}" + wwwProxyNtlm.Continue(wwwAuthenticateNTLMResponseMatch.Groups[1].Value) + "${2}", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                                string replacementAuth = "${1}" + wwwProxyNtlm.Continue(wwwAuthenticateNTLMResponseMatch.Groups[2].Value) + "${3}";
+                                                request_.completedHeader_ = Regex.Replace(request_.completedHeader_,
+                                                                                          "^((Proxy-)*Authorization:\\s+NTLM\\s+)[a-zA-Z0-9=]+[ \t]*([\r\n]*)",
+                                                                                          replacementAuth,
+                                                                                          RegexOptions.IgnoreCase | RegexOptions.Multiline);
                                                 Send(request_);
                                                 header = null;
                                             }
@@ -622,6 +647,9 @@ namespace WwwProxy
                 inbound_.StopKeepAliveTimer(); 
                 inbound_.Send(receiveBuffer, 0, bytesReceived);
                 processedResponseBytes = bytesReceived;
+
+                bytesRequired_ = 0;
+                processResponse_ = false;
             }
 
             return processedResponseBytes;
@@ -738,9 +766,14 @@ namespace WwwProxy
                     {
                         if((receiveBuffer.Length - receiveBufferCount) < 4096)
                         {
-                            byte[] newreceiveBuffer = new byte[receiveBuffer.Length + 4096];
-                            Array.Copy(receiveBuffer, 0, newreceiveBuffer, 0, receiveBuffer.Length);
-                            receiveBuffer = newreceiveBuffer;
+                            int newReceiveBufferLength = receiveBuffer.Length;
+                            while((newReceiveBufferLength - receiveBufferCount) < 4096)
+                            {
+                                newReceiveBufferLength *= 2;
+                            }
+                            byte[] newReceiveBuffer = new byte[newReceiveBufferLength];
+                            Array.Copy(receiveBuffer, 0, newReceiveBuffer, 0, receiveBuffer.Length);
+                            receiveBuffer = newReceiveBuffer;
                         }
 
                         if(ssl_)
@@ -806,7 +839,21 @@ namespace WwwProxy
                             {
                                 while(receiveBufferCount > 0)
                                 {
-                                    int bytesParsed = OnResponse(receiveBuffer, receiveBufferCount, (bytesReceived == 0));
+                                    int bytesParsed = 0;
+                                    if((bytesRequired_ == 0) || ((bytesRequired_ -= bytesReceived) <= 0))
+                                    {
+                                        bytesRequired_ = 0;
+                                        if(processResponse_)
+                                        {
+                                            bytesParsed = OnResponse(receiveBuffer, receiveBufferCount, (bytesReceived == 0));
+                                        }
+                                        else
+                                        {
+                                            inbound_.Send(receiveBuffer, 0, receiveBufferCount);
+                                            bytesParsed = bytesReceived;
+                                        }
+                                    }
+
                                     if(bytesParsed > 0)
                                     {
                                         for(int i = 0; i < receiveBuffer.Length - bytesParsed; ++i)
@@ -878,20 +925,14 @@ namespace WwwProxy
             inbound_.OnDisconnect(this);
             if(!completableResponse_)
             {
-                request_ = null;
-
-                if(response_ != null)
-                {
-                    response_.outbound_ = null;
-                    response_ = null;
-                }
-
+                response_ = null;
+                
                 if(responseCloseInbound_)
                 {
                     inbound_.Close();
                 }
             }
-
+            
             if(outboundThread_ != null)
             {
                 outboundThread_ = null;

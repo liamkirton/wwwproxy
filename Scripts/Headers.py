@@ -1,9 +1,9 @@
 # --------------------------------------------------------------------------------
-# WwwProxy\Scripts\IronPython\Example.py
+# WwwProxy\Scripts\Headers.py
 #
 # Copyright ©2008 Liam Kirton <liam@int3.ws>
 # --------------------------------------------------------------------------------
-# Example.py
+# Headers.py
 #
 # Created: 09/04/2008
 # --------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ class WwwProxyFilter(object):
 				old_user_agent = old_user_agent_search.groups()[1]
 				
 				# !!! Modify User-Agent here !!!
-				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.0.1 Copyright (C)2008 Liam Kirton (int3.ws); WwwProxyScripting.dll; IronPython)'
+				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.1.1 Copyright (C)2008 Liam Kirton (int3.ws); WwwProxyScripting.dll; IronPython)'
 				
 				new_user_agent_sub = r'\g<1>' + new_user_agent
 				if len(old_user_agent_search.groups()[2]) != 0:

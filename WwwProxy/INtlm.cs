@@ -1,11 +1,11 @@
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// WwwProxy\WwwProxyNtlm
+ï»¿///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// WwwProxy\WwwProxy
 //
-// Copyright ©2008 Liam Kirton <liam@int3.ws>
+// Copyright Â©2008 Liam Kirton <liam@int3.ws>
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// WwwProxyNtlm.rc
+// INtlm.cs
 //
-// Created: 09/03/2008
+// Created: 15/04/2008
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // This file is part of WwwProxy.
@@ -25,41 +25,42 @@
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <windows.h>
+namespace WwwProxy
+{
+    public interface INtlm : System.IDisposable
+    {
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        string Continue(string token);
+		void Initialise(string domain, string user, string password);
+		void Reset();
 
-VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,1,1
- PRODUCTVERSION 1,2,1,1
- FILEFLAGSMASK 0x17L
-#ifdef _DEBUG
- FILEFLAGS 0x1L
-#else
- FILEFLAGS 0x0L
-#endif
- FILEOS 0x4L
- FILETYPE 0x2L
- FILESUBTYPE 0x0L
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "080904b0"
-        BEGIN
-            VALUE "CompanyName", "Liam Kirton (http://int3.ws/)"
-			VALUE "FileDescription", "WwwProxyNtlm"
-            VALUE "FileVersion", "1.2.1.1"
-            VALUE "InternalName", "WwwProxyNtlm"
-            VALUE "LegalCopyright", "Copyright ©2008 Liam Kirton"
-            VALUE "OriginalFilename", "WwwProxyNtlm.dll"
-            VALUE "ProductName", "WwwProxyNtlm"
-            VALUE "ProductVersion", "1.2.1.1"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x809, 1200
-    END
-END
+        string Site
+        {
+            get;
+            set;
+        }
+
+        string Path
+        {
+            get;
+            set;
+        }
+
+        string Type
+        {
+            get;
+            set;
+        }
+
+        string Basic
+        {
+            get;
+            set;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

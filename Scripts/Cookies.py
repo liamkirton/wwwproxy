@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------------
-# WwwProxy\Scripts\IronPython\Cookies.py
+# WwwProxy\Scripts\Cookies.py
 #
 # Copyright ©2008 Liam Kirton <liam@int3.ws>
 # --------------------------------------------------------------------------------

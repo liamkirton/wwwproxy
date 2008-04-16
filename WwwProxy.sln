@@ -4,9 +4,6 @@ Microsoft Visual Studio Solution File, Format Version 10.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WwwProxy", "WwwProxy\WwwProxy.csproj", "{3B4607D5-5453-422C-A6C3-1D8EEEC54C35}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WwwProxyClient", "WwwProxyClient\WwwProxyClient.csproj", "{455E8E56-F1B9-45AD-A751-9D20A1B41216}"
-	ProjectSection(ProjectDependencies) = postProject
-		{074F7E1B-03B1-4845-8597-210A0B12D38D} = {074F7E1B-03B1-4845-8597-210A0B12D38D}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WwwProxyNtlm", "WwwProxyNtlm\WwwProxyNtlm.vcproj", "{074F7E1B-03B1-4845-8597-210A0B12D38D}"
 EndProject

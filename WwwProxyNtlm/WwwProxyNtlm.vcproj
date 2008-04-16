@@ -63,6 +63,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="$(NoInherit);secur32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).x86.dll"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				AssemblyDebug="1"
@@ -135,6 +136,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="$(NoInherit);secur32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).x64.dll"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				AssemblyDebug="1"
@@ -206,6 +208,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="$(NoInherit);secur32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).x86.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
@@ -277,6 +280,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="$(NoInherit);secur32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).x64.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
@@ -319,6 +323,10 @@
 			RelativePath="System.XML.dll"
 			AssemblyName="System.Xml, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
 			MinFrameworkVersion="131072"
+		/>
+		<ProjectReference
+			ReferencedProjectIdentifier="{3B4607D5-5453-422C-A6C3-1D8EEEC54C35}"
+			RelativePathToProject=".\WwwProxy\WwwProxy.csproj"
 		/>
 	</References>
 	<Files>
