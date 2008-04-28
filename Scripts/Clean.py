@@ -12,12 +12,16 @@
 
 # WwwProxy.ProxyRequest
 # .Id
+# .Pass
+# .Skip
 # .Header
 # .Data
 
 # WwwProxy.ProxyResponse
 # .Id
 # .Completable
+# .Pass
+# .Skip
 # .Header
 # .Contents
 	
