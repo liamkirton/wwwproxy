@@ -39,12 +39,22 @@ class WwwProxyFilter(object):
 	# ----------------------------------------------------------------------------
 	
 	def pre_request_filter(self, request):
-		print 'pre_request_filter'
+		print '>>>>> pre_request_filter'
 
 	# ----------------------------------------------------------------------------
 
+	def post_request_filter(self, request):
+		print '>>>>> post_request_filter'
+	
+	# ----------------------------------------------------------------------------
+		
 	def pre_response_filter(self, request, response):
-		print 'pre_response_filter'
+		print '<<<<< pre_response_filter'
+
+	# ----------------------------------------------------------------------------
+	
+	def post_response_filter(self, request, response):
+		print '<<<<< post_response_filter'
 
 	# ----------------------------------------------------------------------------
 

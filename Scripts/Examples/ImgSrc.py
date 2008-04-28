@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------------
-# WwwProxy\Scripts\ImgSrc.py
+# WwwProxy\Scripts\Examples\ImgSrc.py
 #
 # Copyright ©2008 Liam Kirton <liam@int3.ws>
 # --------------------------------------------------------------------------------
@@ -12,11 +12,15 @@
 
 # WwwProxy.ProxyRequest
 # .Id
+# .Pass
+# .Skip
 # .Header
 # .Data
 
 # WwwProxy.ProxyResponse
 # .Id
+# .Pass
+# .Skip
 # .Completable
 # .Header
 # .Contents
@@ -45,6 +49,11 @@ class WwwProxyFilter(object):
 
 	# ----------------------------------------------------------------------------
 
+	def post_request_filter(self, request):
+		pass
+	
+	# ----------------------------------------------------------------------------
+	
 	def pre_response_filter(self, request, response):
 		# If we have a valid, completable response
 		if response.Completable and response.Contents != None:
@@ -52,6 +61,11 @@ class WwwProxyFilter(object):
 			new_img_url = 'http://crazymonk.org/images/hypnotoad.jpg'
 			img_sub_re = re.compile('(img.*?src=[\'\"])(.*?)([\'\"].*?>)', re.DOTALL | re.I | re.M)
 			response.Contents = img_sub_re.sub('\g<1>' + new_img_url + '\g<3>', response.Contents)
+	
+	# ----------------------------------------------------------------------------
+	
+	def post_response_filter(self, request, response):
+		pass
 	
 	# ----------------------------------------------------------------------------
 

@@ -1,9 +1,9 @@
 # --------------------------------------------------------------------------------
-# WwwProxy\Scripts\Headers.py
+# WwwProxy\Scripts\Default.py
 #
 # Copyright ©2008 Liam Kirton <liam@int3.ws>
 # --------------------------------------------------------------------------------
-# Headers.py
+# Default.py
 #
 # Created: 09/04/2008
 # --------------------------------------------------------------------------------
@@ -12,12 +12,16 @@
 
 # WwwProxy.ProxyRequest
 # .Id
+# .Pass
+# .Skip
 # .Header
 # .Data
 
 # WwwProxy.ProxyResponse
 # .Id
 # .Completable
+# .Pass
+# .Skip
 # .Header
 # .Contents
 	
@@ -83,7 +87,7 @@ class WwwProxyFilter(object):
 				old_user_agent = old_user_agent_search.groups()[1]
 				
 				# !!! Modify User-Agent here !!!
-				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.1.1 Copyright (C)2008 Liam Kirton (int3.ws); WwwProxyScripting.dll; IronPython)'
+				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.2.1 (http://int3.ws/); WwwProxyScripting.dll; IronPython)'
 				
 				new_user_agent_sub = r'\g<1>' + new_user_agent
 				if len(old_user_agent_search.groups()[2]) != 0:
@@ -103,12 +107,30 @@ class WwwProxyFilter(object):
 				if len(old_cookie_search.groups()[2]) != 0:
 					new_cookie_sub += r'\g<3>'
 				request.Header = cookie_re.sub(new_cookie_sub, request.Header)
-		
+			
+			# Automatically pass uninteresting requests, without notifying chained
+			# event handlers
+			uninteresting_request_types = ['.jpg', '.gif', '.png', '.js', '.css']
+			request_type = request_groups[1].split('?')[0]
+			for s in uninteresting_request_types:
+				if request_type.endswith(s):
+					request.Pass = True
+					request.Skip = True
+					break
+						
 		if request.Header[len(request.Header) - 2:] == '\r\n':
 			request.Header = request.Header[:len(request.Header) - 2]
 
 	# ----------------------------------------------------------------------------
-
+	
+	def post_request_filter(self, request):
+		request_match = re.compile(r'^([A-Z]+)\s+(.*)\s+HTTP/\d\.\d').match(request.Header)
+		if request_match != None:
+			request_groups = request_match.groups()
+			print '>>>>> post_request_filter(%d, %s, %s)\n' % (request.Id, request_groups[0], request_groups[1])
+		
+	# ----------------------------------------------------------------------------
+			
 	def pre_response_filter(self, request, response):
 		request_match = re.compile(r'^([A-Z]+)\s+(.*)\s+HTTP/\d\.\d').match(request.Header)
 		if request_match != None:
@@ -129,6 +151,15 @@ class WwwProxyFilter(object):
 		if response.Header[len(response.Header) - 2:] == '\r\n':
 			response.Header = response.Header[:len(response.Header) - 2]
 
+	# ----------------------------------------------------------------------------
+	
+	def post_response_filter(self, request, response):
+		request_match = re.compile(r'^([A-Z]+)\s+(.*)\s+HTTP/\d\.\d').match(request.Header)
+		if request_match != None:
+			# Print request/response
+			request_groups = request_match.groups()
+			print '<<<<< post_response_filter(%d, Completable=%s, %s, %s)\n' % (request.Id, response.Completable, request_groups[0], request_groups[1])
+	
 	# ----------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------------
