@@ -129,7 +129,9 @@ namespace WwwProxyScripting
                 wwwProxyFilterInstance_ = scriptEngine_.Operations.Call(wwwProxyFilterClass);
 
                 WwwProxy.WwwProxy.Instance.PreRequest += new WwwProxyRequestEvent(WwwProxy_PreRequest);
+                WwwProxy.WwwProxy.Instance.PostRequest += new WwwProxyRequestEvent(WwwProxy_PostRequest);
                 WwwProxy.WwwProxy.Instance.PreResponse += new WwwProxyResponseEvent(WwwProxy_PreResponse);
+                WwwProxy.WwwProxy.Instance.PostResponse += new WwwProxyResponseEvent(WwwProxy_PostResponse);
             }
             catch(Exception e)
             {
@@ -152,7 +154,9 @@ namespace WwwProxyScripting
             try
             {
                 WwwProxy.WwwProxy.Instance.PreRequest -= new WwwProxyRequestEvent(WwwProxy_PreRequest);
+                WwwProxy.WwwProxy.Instance.PostRequest -= new WwwProxyRequestEvent(WwwProxy_PostRequest);
                 WwwProxy.WwwProxy.Instance.PreResponse -= new WwwProxyResponseEvent(WwwProxy_PreResponse);
+                WwwProxy.WwwProxy.Instance.PostResponse -= new WwwProxyResponseEvent(WwwProxy_PostResponse);
 
                 wwwProxyFilterInstance_ = null;
 
@@ -190,6 +194,23 @@ namespace WwwProxyScripting
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        private void WwwProxy_PostRequest(ProxyRequest request)
+        {
+            try
+            {
+                object requestFilter = scriptEngine_.Operations.GetMember<object>(wwwProxyFilterInstance_, "post_request_filter");
+
+                object[] parameters = { request };
+                scriptEngine_.Operations.Call(requestFilter, parameters);
+            }
+            catch(Exception e)
+            {
+                debugLog_.Write("WwwProxyScripting.WwwProxy_PostRequest()", e.ToString());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
         private void WwwProxy_PreResponse(ProxyRequest request, ProxyResponse response)
         {
             try
@@ -201,7 +222,24 @@ namespace WwwProxyScripting
             }
             catch(Exception e)
             {
-                debugLog_.Write("WwwProxyScripting.WwwProxy_PreRequest()", e.ToString());
+                debugLog_.Write("WwwProxyScripting.WwwProxy_PreResponse()", e.ToString());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void WwwProxy_PostResponse(ProxyRequest request, ProxyResponse response)
+        {
+            try
+            {
+                object responseFilter = scriptEngine_.Operations.GetMember<object>(wwwProxyFilterInstance_, "post_response_filter");
+
+                object[] parameters = { request, response };
+                scriptEngine_.Operations.Call(responseFilter, parameters);
+            }
+            catch(Exception e)
+            {
+                debugLog_.Write("WwwProxyScripting.WwwProxy_PostResponse()", e.ToString());
             }
         }
 

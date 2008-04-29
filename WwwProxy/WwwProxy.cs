@@ -70,8 +70,11 @@ namespace WwwProxy
 
         public event WwwProxyRequestEvent PreRequest;
         public event WwwProxyRequestEvent Request;
+        public event WwwProxyRequestEvent PostRequest;
+
         public event WwwProxyResponseEvent PreResponse;
         public event WwwProxyResponseEvent Response;
+        public event WwwProxyResponseEvent PostResponse;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -396,6 +399,9 @@ namespace WwwProxy
 
         public void Drop(ProxyRequest request)
         {
+            request.pass_ = false;
+            request.skipRemainingHandlers_ = true;
+
             if(request.inbound_ != null)
             {
                 request.inbound_.Close();
@@ -408,9 +414,23 @@ namespace WwwProxy
 
         public void Pass(ProxyRequest request)
         {
-            if(request.inbound_ != null)
+            request.pass_ = true;
+
+            if(!request.skipRemainingHandlers_ && (PostRequest != null))
             {
-                request.inbound_.Complete(request);
+                PostRequest(request);
+            }
+
+            if(request.pass_)
+            {
+                if(request.inbound_ != null)
+                {
+                    request.inbound_.Complete(request);
+                }
+            }
+            else
+            {
+                Drop(request);
             }
         }
 
@@ -418,6 +438,9 @@ namespace WwwProxy
 
         public void Drop(ProxyResponse response)
         {
+            response.pass_ = false;
+            response.skipRemainingHandlers_ = true;
+
             if(response.outbound_ != null)
             {
                 if(response.outbound_.inbound_ != null)
@@ -436,14 +459,28 @@ namespace WwwProxy
 
         public void Pass(ProxyResponse response)
         {
-            if(response.completable_ && (response.outbound_ != null))
+            response.pass_ = true;
+
+            if(response.completable_ && !response.skipRemainingHandlers_ && (PostResponse != null))
             {
-                response.outbound_.Complete(response);
+                PostResponse(response.request_, response);
             }
-            response.request_.encoding_ = null;
-            response.request_.inbound_ = null;
-            response.encoding_ = null;
-            response.outbound_ = null;
+
+            if(response.pass_)
+            {
+                if(response.completable_ && (response.outbound_ != null))
+                {
+                    response.outbound_.Complete(response);
+                }
+                response.request_.encoding_ = null;
+                response.request_.inbound_ = null;
+                response.encoding_ = null;
+                response.outbound_ = null;
+            }
+            else
+            {
+                Drop(response);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -615,35 +652,47 @@ namespace WwwProxy
                     if(notifyObject is ProxyRequest)
                     {
                         ProxyRequest notifyRequest = (ProxyRequest)notifyObject;
+                        notifyRequest.pass_ = true;
+                        notifyRequest.skipRemainingHandlers_ = false;
+
                         if(PreRequest != null)
                         {
                             PreRequest(notifyRequest);
                         }
-
-                        if(Request != null)
+                        if(!notifyRequest.skipRemainingHandlers_ && (Request != null))
                         {
                             Request(notifyRequest);
                         }
-                        else
+                        else if(notifyRequest.pass_)
                         {
                             Pass(notifyRequest);
+                        }
+                        else
+                        {
+                            Drop(notifyRequest);
                         }
                     }
                     else if(notifyObject is ProxyResponse)
                     {
                         ProxyResponse notifyResponse = (ProxyResponse)notifyObject;
-                        if(PreResponse != null)
+                        notifyResponse.pass_ = true;
+                        notifyResponse.skipRemainingHandlers_ = notifyResponse.request_.skipRemainingHandlers_;
+
+                        if(notifyResponse.completable_ && !notifyResponse.skipRemainingHandlers_ && (PreResponse != null))
                         {
                             PreResponse(notifyResponse.request_, notifyResponse);
                         }
-
-                        if(Response != null)
+                        if(!notifyResponse.skipRemainingHandlers_ && (Response != null))
                         {
                             Response(notifyResponse.request_, notifyResponse);
                         }
-                        else
+                        else if(notifyResponse.pass_)
                         {
                             Pass(notifyResponse);
+                        }
+                        else
+                        {
+                            Drop(notifyResponse);
                         }
                     }
                 }

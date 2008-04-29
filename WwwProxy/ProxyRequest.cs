@@ -42,7 +42,10 @@ namespace WwwProxy
         internal Encoding encoding_ = null;
         internal Inbound inbound_ = null;
 
+        internal bool pass_ = true;
+        internal bool skipRemainingHandlers_ = false;
         internal bool sent_ = false;
+
         internal string header_ = null;
         internal string completedHeader_ = null; 
         internal string data_ = null;
@@ -66,6 +69,34 @@ namespace WwwProxy
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        public bool Pass
+        {
+            get
+            {
+                return pass_;
+            }
+            set
+            {
+                pass_ = value;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool SkipRemainingHandlers
+        {
+            get
+            {
+                return skipRemainingHandlers_;
+            }
+            set
+            {
+                skipRemainingHandlers_ = value;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        
         public string Header
         {
             get

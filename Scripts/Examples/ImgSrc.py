@@ -13,14 +13,14 @@
 # WwwProxy.ProxyRequest
 # .Id
 # .Pass
-# .Skip
+# .SkipRemainingHandlers
 # .Header
 # .Data
 
 # WwwProxy.ProxyResponse
 # .Id
 # .Pass
-# .Skip
+# .SkipRemainingHandlers
 # .Completable
 # .Header
 # .Contents

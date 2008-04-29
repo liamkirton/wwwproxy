@@ -214,6 +214,10 @@ namespace WwwProxy
                 {
 
                 }
+                catch(ObjectDisposedException)
+                {
+
+                }
                 catch(SocketException)
                 {
 

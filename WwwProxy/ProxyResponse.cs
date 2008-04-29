@@ -40,6 +40,9 @@ namespace WwwProxy
         internal ProxyRequest request_ = null;
 
         internal bool completable_ = true;
+        internal bool pass_ = true;
+        internal bool skipRemainingHandlers_ = false;
+
         internal string header_ = null;
         internal string contents_ = null;
 
@@ -60,6 +63,34 @@ namespace WwwProxy
             get
             {
                 return completable_;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool Pass
+        {
+            get
+            {
+                return pass_;
+            }
+            set
+            {
+                pass_ = value;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool SkipRemainingHandlers
+        {
+            get
+            {
+                return skipRemainingHandlers_;
+            }
+            set
+            {
+                skipRemainingHandlers_ = value;
             }
         }
 

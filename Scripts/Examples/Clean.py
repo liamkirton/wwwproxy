@@ -13,7 +13,7 @@
 # WwwProxy.ProxyRequest
 # .Id
 # .Pass
-# .Skip
+# .SkipRemainingHandlers
 # .Header
 # .Data
 
@@ -21,7 +21,7 @@
 # .Id
 # .Completable
 # .Pass
-# .Skip
+# .SkipRemainingHandlers
 # .Header
 # .Contents
 	
