@@ -1,5 +1,5 @@
 ================================================================================
-WwwProxy 1.2.2.1
+WwwProxy 1.2.3.1
 Copyright ©2008 Liam Kirton <liam@int3.ws>
 
 29th April 2008
@@ -89,9 +89,10 @@ logging, which will generate WwwProxyScripting_Debug.log containing error
 messages.
 
 Please note that WwwProxyScripting.dll must exist in the same directory as
-WwwProxy.dll, and that IronPython.dll, IronPython.Modules.dll and
-Microsoft.Scripting.dll must also exist in that directory.
+WwwProxy.dll, and that IronPython.dll, IronPython.Modules.dll,
+Microsoft.Scripting.dll and Microsoft.Scripting.Core.dll must also exist in
+that directory.
 
-A selection of example scripts are supplied in Scripts\IronPython.
+A selection of example scripts are supplied in Scripts\
 
 ================================================================================

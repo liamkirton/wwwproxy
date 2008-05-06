@@ -28,10 +28,10 @@
 # --------------------------------------------------------------------------------
 
 import clr
+import re
+
 clr.AddReference('WwwProxy')
 from WwwProxy import *
-
-import re
 
 # --------------------------------------------------------------------------------
 
@@ -88,7 +88,7 @@ class WwwProxyFilter(object):
 				old_user_agent = old_user_agent_search.groups()[1]
 				
 				# !!! Modify User-Agent here !!!
-				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.2.1 (http://int3.ws/); WwwProxyScripting.dll; IronPython)'
+				new_user_agent = 'Mozilla/4.0 (compatible; WwwProxy 1.2.3.1 (http://int3.ws/); WwwProxyScripting.dll; IronPython)'
 				
 				new_user_agent_sub = r'\g<1>' + new_user_agent
 				if len(old_user_agent_search.groups()[2]) != 0:
