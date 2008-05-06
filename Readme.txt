@@ -2,7 +2,7 @@
 WwwProxy 1.2.3.1
 Copyright ©2008 Liam Kirton <liam@int3.ws>
 
-29th April 2008
+6th May 2008
 http://int3.ws/
 ================================================================================
 
