@@ -45,6 +45,7 @@ namespace WwwProxy
         internal bool pass_ = true;
         internal bool skipRemainingHandlers_ = false;
         internal bool sent_ = false;
+        internal bool ssl_ = false;
 
         internal string header_ = null;
         internal string completedHeader_ = null; 
@@ -96,7 +97,17 @@ namespace WwwProxy
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        
+
+        public bool Ssl
+        {
+            get
+            {
+                return ssl_;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
         public string Header
         {
             get

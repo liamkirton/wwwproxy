@@ -638,6 +638,7 @@ namespace WwwProxy
                                 response_.outbound_ = this;
                                 response_.request_ = request_;
                                 response_.completable_ = completableResponse_;
+                                response_.ssl_ = ssl_;
                                 response_.header_ = header;
                                 response_.contents_ = contents;
                                 wwwProxy_.OnResponse(response_);

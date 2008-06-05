@@ -519,6 +519,7 @@ namespace WwwProxy
 
                                 ProxyRequest request = new ProxyRequest();
                                 request.inbound_ = this;
+                                request.ssl_ = ssl_;
                                 request.header_ = requestRaw;
                                 request.data_ = postRaw;
 

@@ -178,7 +178,7 @@ namespace WwwProxyClient
             if(urlMatch.Success)
             {
                 string url = urlMatch.Groups[2].Value;
-                Console.WriteLine(">>>>> WwwProxy_Request({0}, {1})", request.Id, url);
+                Console.WriteLine(">>>>> WwwProxy_Request({0}, {1}, {2})", request.Id, request.Ssl ? "https" : "http", url);
             }
 
             Console.WriteLine();
@@ -208,7 +208,7 @@ namespace WwwProxyClient
             if(urlMatch.Success)
             {
                 string url = urlMatch.Groups[2].Value;
-                Console.WriteLine("<<<<< WwwProxy_Response({0}, {1}, {2})", response.Id, url, response.Completable);
+                Console.WriteLine("<<<<< WwwProxy_Response({0}, {1}, {2}, {3})", response.Id, request.Ssl ? "https" : "http", url, response.Completable);
             }
 
             Console.WriteLine();
